@@ -17,13 +17,18 @@ def get_api_key():
 def set_api_key(key):
     keyring.set_password(SERVICE_NAME, API_KEY_ENTRY, key)
 
-def summarize_page(content, api_key):
+def summarize_page(content, api_key, prompt=None):
     openai.api_key = api_key
+    system_prompt = prompt or (
+        "You are an expert assistant. Extract the most meaningful information from the following web page content. "
+        "Instead of summarizing, identify actionable insights, implications for the user, and clear action items. "
+        "If relevant, list next steps, important warnings, and key takeaways."
+    )
     try:
         response = openai.chat.completions.create(
             model="gpt-4.1-nano",  # GPT-4.1-mini
             messages=[
-                {"role": "system", "content": "Summarize the following web page content as concisely as possible."},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": content}
             ],
             max_tokens=512,
@@ -122,6 +127,18 @@ with st.sidebar.expander("🔑 OpenAI API Key Settings", expanded=False):
         set_api_key(api_key_input)
         st.success("API key saved securely.")
 
+# Sidebar: Custom Prompt
+st.sidebar.markdown("---")
+st.sidebar.header("Summarizer Prompt")
+default_prompt = (
+    "You are an expert assistant. Extract the most meaningful information from the following web page content. "
+    "Instead of summarizing, identify actionable insights, implications for the user, and clear action items. "
+    "If relevant, list next steps, important warnings, and key takeaways."
+)
+custom_prompt = st.sidebar.text_area("Custom prompt (optional)", value="", height=80, key="custom_prompt")
+active_prompt = custom_prompt.strip() if custom_prompt.strip() else default_prompt
+st.sidebar.caption(f"Current prompt: {active_prompt}")
+
 # Sidebar: Page Information
 st.sidebar.markdown("---")
 st.sidebar.header("Page Information")
@@ -177,7 +194,7 @@ should_summarize = (
 
 if should_summarize:
     with st.spinner("Generating summary..."):
-        summary = summarize_page(current_content, api_key)
+        summary = summarize_page(current_content, api_key, active_prompt)
     st.session_state['summary'] = summary
     st.session_state['last_summarized_content'] = current_content
     summary_placeholder.subheader("Summary")
